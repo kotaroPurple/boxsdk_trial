@@ -55,12 +55,16 @@ def run_cli(argv: list[str] | None = None) -> int:
         created = create_dummy_files(data_dir, rows=args.rows, files=args.files)
         for path in created:
             logging.info("Created %s", path)
+        logging.info("Dummy generation completed: %d file(s) under %s", len(created), data_dir)
         return 0
 
     log = UploadLog(settings.upload_log_path)
 
     if args.command == "list":
         files = find_csv_files(data_dir)
+        if not files:
+            print(f"No CSV files found in {data_dir}")
+            return 0
         for path in files:
             status = "uploaded" if log.is_uploaded(path) else "pending"
             print(f"{path.name}\t{status}")
@@ -68,8 +72,14 @@ def run_cli(argv: list[str] | None = None) -> int:
 
     if args.command == "upload":
         files = find_csv_files(settings.local_data_dir)
+        if not files:
+            logging.info("No CSV files found in %s", settings.local_data_dir)
+            return 0
+
         if args.limit:
             files = files[: args.limit]
+
+        logging.info("Found %d CSV files. Starting upload...", len(files))
         client = build_client(settings)
         stats = upload_directory(
             client=client,
@@ -85,6 +95,8 @@ def run_cli(argv: list[str] | None = None) -> int:
             stats.failed,
             stats.skipped,
         )
+        if stats.failed:
+            logging.error("Some files failed to upload. See logs above.")
         return 0 if stats.failed == 0 else 1
 
     parser.error("Unknown command")
