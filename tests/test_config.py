@@ -7,6 +7,9 @@ from boxsdk_trial.config import BoxSettings, build_client
 
 
 def test_from_env_accepts_user_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("BOX_ENTERPRISE_ID", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("")
     monkeypatch.setenv("BOX_CLIENT_ID", "cid")
     monkeypatch.setenv("BOX_CLIENT_SECRET", "csecret")
     monkeypatch.setenv("BOX_JWT_KEY_ID", "kid")
@@ -15,8 +18,7 @@ def test_from_env_accepts_user_only(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     monkeypatch.setenv("BOX_UPLOAD_FOLDER_ID", "fid")
     monkeypatch.setenv("BOX_APP_USER_ID", "user123")
     # BOX_ENTERPRISE_ID intentionally unset
-
-    settings = BoxSettings.from_env()
+    settings = BoxSettings.from_env(env_file)
     assert settings.enterprise_id is None
     assert settings.app_user_id == "user123"
 
