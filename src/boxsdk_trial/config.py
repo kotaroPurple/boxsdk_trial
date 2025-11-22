@@ -11,11 +11,13 @@ from box_sdk_gen.box.jwt_auth import BoxJWTAuth, JWTConfig
 from box_sdk_gen.client import BoxClient
 
 
-def _get_env(name: str, default: str | None = None) -> str:
+def _get_env(name: str, default: str | None = None, required: bool = True) -> str | None:
     """環境変数取得のヘルパー。必須値が無ければ ValueError を投げる。"""
     value = os.getenv(name, default)
-    if value is None or value == "":
+    if required and (value is None or value == ""):
         raise ValueError(f"Environment variable {name} is required.")
+    if value is None or value == "":
+        return None
     return value
 
 
@@ -32,7 +34,7 @@ class BoxSettings:
 
     client_id: str
     client_secret: str
-    enterprise_id: str
+    enterprise_id: str | None
     jwt_private_key: str
     jwt_passphrase: str
     jwt_key_id: str
@@ -56,20 +58,23 @@ class BoxSettings:
         return cls(
             client_id=_get_env("BOX_CLIENT_ID"),
             client_secret=_get_env("BOX_CLIENT_SECRET"),
-            enterprise_id=_get_env("BOX_ENTERPRISE_ID"),
+            enterprise_id=_get_env("BOX_ENTERPRISE_ID", required=False),
             jwt_private_key=_normalize_private_key(_get_env("BOX_JWT_PRIVATE_KEY")),
             jwt_passphrase=_get_env("BOX_JWT_PASSPHRASE"),
             jwt_key_id=_get_env("BOX_JWT_KEY_ID"),
             upload_folder_id=_get_env("BOX_UPLOAD_FOLDER_ID"),
             local_data_dir=local_dir,
             upload_log_path=upload_log,
-            app_user_id=os.getenv("BOX_APP_USER_ID"),
+            app_user_id=_get_env("BOX_APP_USER_ID", required=False),
             max_retries=int(os.getenv("BOX_MAX_RETRIES", "3")),
         )
 
 
 def build_client(settings: BoxSettings) -> BoxClient:
     """JWT 認証済みの Box クライアントを返す。"""
+    if settings.enterprise_id is None and settings.app_user_id is None:
+        raise ValueError("Provide BOX_ENTERPRISE_ID or BOX_APP_USER_ID (at least one is required).")
+
     config = JWTConfig(
         client_id=settings.client_id,
         client_secret=settings.client_secret,
