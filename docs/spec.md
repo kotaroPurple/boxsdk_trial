@@ -36,6 +36,7 @@
 - `BOX_CLIENT_SECRET`  
 - `BOX_JWT_PRIVATE_KEY` (PEM 文字列)  
 - `BOX_JWT_PASSPHRASE`  
+- `BOX_JWT_KEY_ID` (公開鍵 ID)  
 - `BOX_ENTERPRISE_ID`  
 - `BOX_APP_USER_ID` (アプリユーザー利用時)  
 - `BOX_UPLOAD_FOLDER_ID` (アップロード先フォルダ ID)  

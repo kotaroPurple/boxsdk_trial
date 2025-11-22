@@ -1,0 +1,84 @@
+"""環境変数と Box クライアント設定を扱うモジュール。"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+from boxsdk import JWTAuth, Client
+
+
+def _get_env(name: str, default: str | None = None) -> str:
+    """環境変数取得のヘルパー。必須値が無ければ ValueError を投げる。"""
+    value = os.getenv(name, default)
+    if value is None or value == "":
+        raise ValueError(f"Environment variable {name} is required.")
+    return value
+
+
+def _normalize_private_key(raw_key: str) -> str:
+    """PEM を環境変数で渡す際の \\n 埋め込みを復元する。"""
+    if "-----BEGIN" in raw_key:
+        return raw_key.replace("\\n", "\n")
+    return raw_key
+
+
+@dataclass
+class BoxSettings:
+    """BOX JWT 認証とアプリ設定。"""
+
+    client_id: str
+    client_secret: str
+    enterprise_id: str
+    jwt_private_key: str
+    jwt_passphrase: str
+    jwt_key_id: str
+    upload_folder_id: str
+    local_data_dir: Path
+    upload_log_path: Path
+    app_user_id: str | None = None
+    max_retries: int = 3
+
+    @classmethod
+    def from_env(cls, env_path: Path | None = None) -> "BoxSettings":
+        """環境変数 (必要に応じて .env) から設定を読み込む。"""
+        if env_path:
+            load_dotenv(env_path)
+        else:
+            load_dotenv()
+
+        local_dir = Path(os.getenv("LOCAL_DATA_DIR", "data")).expanduser()
+        upload_log = Path(os.getenv("UPLOAD_LOG_PATH", ".upload_log.json")).expanduser()
+
+        return cls(
+            client_id=_get_env("BOX_CLIENT_ID"),
+            client_secret=_get_env("BOX_CLIENT_SECRET"),
+            enterprise_id=_get_env("BOX_ENTERPRISE_ID"),
+            jwt_private_key=_normalize_private_key(_get_env("BOX_JWT_PRIVATE_KEY")),
+            jwt_passphrase=_get_env("BOX_JWT_PASSPHRASE"),
+            jwt_key_id=_get_env("BOX_JWT_KEY_ID"),
+            upload_folder_id=_get_env("BOX_UPLOAD_FOLDER_ID"),
+            local_data_dir=local_dir,
+            upload_log_path=upload_log,
+            app_user_id=os.getenv("BOX_APP_USER_ID"),
+            max_retries=int(os.getenv("BOX_MAX_RETRIES", "3")),
+        )
+
+
+def build_client(settings: BoxSettings) -> Client:
+    """JWT 認証済みの Box クライアントを返す。"""
+    auth = JWTAuth(
+        client_id=settings.client_id,
+        client_secret=settings.client_secret,
+        enterprise_id=settings.enterprise_id,
+        jwt_key_id=settings.jwt_key_id,
+        rsa_private_key_data=settings.jwt_private_key.encode(),
+        rsa_private_key_passphrase=settings.jwt_passphrase.encode(),
+    )
+    if settings.app_user_id:
+        auth.authenticate_user(settings.app_user_id)
+    else:
+        auth.authenticate_instance()
+    return Client(auth)
