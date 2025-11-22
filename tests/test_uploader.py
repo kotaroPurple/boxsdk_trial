@@ -6,22 +6,19 @@ import pytest
 from boxsdk_trial.uploader import UploadLog, create_dummy_files, upload_directory
 
 
-class FakeFolder:
+class FakeUploads:
     def __init__(self) -> None:
         self.uploaded: list[str] = []
 
-    def upload_stream(self, stream, file_name: str):  # noqa: ANN001
-        stream.read()
-        self.uploaded.append(file_name)
-        return SimpleNamespace(id="file-id", name=file_name)
+    def upload_file(self, attributes, file, file_file_name=None, **kwargs):  # noqa: ANN001,ARG002
+        file.read()
+        self.uploaded.append(file_file_name or attributes.name)
+        return SimpleNamespace(id="file-id", name=file_file_name)
 
 
 class FakeClient:
-    def __init__(self, folder: FakeFolder) -> None:
-        self._folder = folder
-
-    def folder(self, folder_id: str) -> FakeFolder:  # noqa: ARG002
-        return self._folder
+    def __init__(self, uploads: FakeUploads) -> None:
+        self.uploads = uploads
 
 
 def test_create_dummy_files(tmp_path: Path) -> None:
@@ -40,8 +37,8 @@ def test_upload_directory_skips_uploaded(tmp_path: Path) -> None:
     log.mark_uploaded(created[0])
     log.save()
 
-    folder = FakeFolder()
-    client = FakeClient(folder)
+    uploads = FakeUploads()
+    client = FakeClient(uploads)
 
     stats = upload_directory(
         client=client,
@@ -53,5 +50,5 @@ def test_upload_directory_skips_uploaded(tmp_path: Path) -> None:
 
     assert stats.skipped == 1
     assert stats.succeeded == 1
-    assert len(folder.uploaded) == 1
-    assert folder.uploaded[0] == created[1].name
+    assert len(uploads.uploaded) == 1
+    assert uploads.uploaded[0] == created[1].name

@@ -11,7 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from boxsdk import Client
+from box_sdk_gen.client import BoxClient
+from box_sdk_gen.managers.uploads import (
+    UploadFileAttributes,
+    UploadFileAttributesParentField,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +65,7 @@ class UploadStats:
 
 
 def upload_directory(
-    client: Client,
+    client: BoxClient,
     folder_id: str,
     files: Iterable[Path],
     log: UploadLog,
@@ -92,7 +96,15 @@ def _upload_with_retry(client: Client, folder_id: str, file_path: Path, max_retr
     while True:
         try:
             with file_path.open("rb") as stream:
-                client.folder(folder_id).upload_stream(stream, file_name=file_path.name)
+                attributes = UploadFileAttributes(
+                    name=file_path.name,
+                    parent=UploadFileAttributesParentField(id=folder_id),
+                )
+                client.uploads.upload_file(
+                    attributes=attributes,
+                    file=stream,
+                    file_file_name=file_path.name,
+                )
             return
         except Exception:  # noqa: BLE001
             attempts += 1

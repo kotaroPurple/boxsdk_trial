@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
-from boxsdk import JWTAuth, Client
+from box_sdk_gen.box.jwt_auth import BoxJWTAuth, JWTConfig
+from box_sdk_gen.client import BoxClient
 
 
 def _get_env(name: str, default: str | None = None) -> str:
@@ -67,18 +68,16 @@ class BoxSettings:
         )
 
 
-def build_client(settings: BoxSettings) -> Client:
+def build_client(settings: BoxSettings) -> BoxClient:
     """JWT 認証済みの Box クライアントを返す。"""
-    auth = JWTAuth(
+    config = JWTConfig(
         client_id=settings.client_id,
         client_secret=settings.client_secret,
-        enterprise_id=settings.enterprise_id,
         jwt_key_id=settings.jwt_key_id,
-        rsa_private_key_data=settings.jwt_private_key.encode(),
-        rsa_private_key_passphrase=settings.jwt_passphrase.encode(),
+        private_key=settings.jwt_private_key,
+        private_key_passphrase=settings.jwt_passphrase,
+        enterprise_id=settings.enterprise_id,
+        user_id=settings.app_user_id,
     )
-    if settings.app_user_id:
-        auth.authenticate_user(settings.app_user_id)
-    else:
-        auth.authenticate_instance()
-    return Client(auth)
+    auth = BoxJWTAuth(config)
+    return BoxClient(auth)
